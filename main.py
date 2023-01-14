@@ -1,50 +1,69 @@
+import os
 import io
-import threading
 
 import speech_recognition as sr
 import whisper
 import tempfile
+import pvporcupine
+from pvrecorder import PvRecorder
 
-r = sr.Recognizer()
-r.dynamic_energy_threshold = True
-r.dynamic_energy_ratio = 3.0
+AccessKey = os.environ.get('PORCUPINE_ACCESS_KEY')
+
+porcupine = pvporcupine.create(
+    access_key=AccessKey,
+    keyword_paths=['./keyword_model.ppn']
+)
 
 model = whisper.load_model("small")
 language = "russian"
 
-mutex = threading.Lock()
-
 
 def listen():
-    with sr.Microphone(sample_rate=16000) as source:
-        print("Say something!")
-        while True:
-            audio = r.record(source, duration=4)
-            data = io.BytesIO(audio.get_wav_data())
+    try:
+        keyword_recorder = PvRecorder(device_index=1, frame_length=porcupine.frame_length)
 
-            transcribe_thread = threading.Thread(target=transcribe, args=(data,))
-            transcribe_thread.daemon = True
-            transcribe_thread.start()
+        print("Waiting for keyword...")
+        while True:
+            keyword_recorder.start()
+            pcm = keyword_recorder.read()
+
+            keyword_index = porcupine.process(pcm)
+            if keyword_index == 0:
+                keyword_recorder.stop()
+                print("Listening...")
+                listening()
+
+    except KeyboardInterrupt:
+        print('Stopping...')
+
+
+def listening():
+    with sr.Microphone(sample_rate=16000) as source:
+        r = sr.Recognizer()
+        audio = r.listen(source)
+        data = io.BytesIO(audio.get_wav_data())
+
+        transcribe(data)
 
 
 def transcribe(data):
-    try:
-        mutex.acquire()
+    print("Transcribing...")
 
-        with tempfile.NamedTemporaryFile(suffix=".wav") as f:
-            f.write(data.read())
-            f.flush()
+    with tempfile.NamedTemporaryFile(suffix=".wav") as f:
+        f.write(data.read())
+        f.flush()
+        transcribe_with_whisper(f)
 
-            audio = whisper.load_audio(f.name)
-            audio = whisper.pad_or_trim(audio)
-            mel = whisper.log_mel_spectrogram(audio).to(model.device)
 
-            options = whisper.DecodingOptions(fp16=False, language=language)
-            result = whisper.decode(model, mel, options)
+def transcribe_with_whisper(f):
+    audio = whisper.load_audio(f.name)
+    audio = whisper.pad_or_trim(audio)
+    mel = whisper.log_mel_spectrogram(audio).to(model.device)
 
-            print(result.text)
-    finally:
-        mutex.release()
+    options = whisper.DecodingOptions(fp16=False, language=language)
+    result = whisper.decode(model, mel, options)
+
+    print(result.text)
 
 
 if __name__ == "__main__":
