@@ -2,3 +2,4 @@ pvporcupine==2.1.4
 pvrecorder==1.1.1
 SpeechRecognition==3.9.0
 whisper==1.0
+requests~=2.28.1
