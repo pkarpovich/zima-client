@@ -2,27 +2,26 @@ import os
 import io
 
 import speech_recognition as sr
-import requests
 import whisper
 import tempfile
 import pvporcupine
 from pvrecorder import PvRecorder
 
-from wit_service import WitService
+from prediction_service import PredictionService
 
 AccessKey = os.environ.get('PORCUPINE_ACCESS_KEY')
-WitVersion = "20230114"
-WitToken = os.environ.get('WIT_TOKEN')
 
 porcupine = pvporcupine.create(
     access_key=AccessKey,
     keyword_paths=['./keyword_model.ppn']
 )
 
-model = whisper.load_model("large")
+model = whisper.load_model("small")
 language = "russian"
 
-wit_service = WitService(WitToken)
+prediction_service = PredictionService()
+corpus_embeddings = prediction_service.get_embed_corpus()
+from_corpus_id_to_intent_id = prediction_service.prepare_corpus()
 
 
 def listen():
@@ -51,8 +50,10 @@ def listening():
         data = io.BytesIO(audio.get_wav_data())
 
         text = transcribe(data)
-        prediction = wit_service.predict(text)
-        print(prediction)
+        matched_intent, _, _ = prediction_service.get_matched_intent(text, corpus_embeddings, from_corpus_id_to_intent_id)
+
+        print("Intent: " + matched_intent['name'])
+        print("Answer: " + matched_intent["answer"]())
 
 
 def transcribe(data):
