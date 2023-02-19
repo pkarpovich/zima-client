@@ -28,10 +28,6 @@ def bag_of_words(tokens, words):
     tokens = [token for token in tokens if token.strip() not in punctuation]
     tokens = [token for token in tokens if not token.lower() in stop_words]
 
-    # sentence_words = [token for token in sentence_words if token not in russian_stopwords \
-    #           and token != " " \
-    #           and token.strip() not in punctuation]
-
     # initialize bag with 0 for each word
     bag = np.zeros(len(words), dtype=np.float32)
     for idx, w in enumerate(words):

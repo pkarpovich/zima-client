@@ -3,3 +3,7 @@ pvrecorder==1.1.1
 SpeechRecognition==3.9.0
 whisper==1.0
 sentence_transformers==2.2.2
+torch~=1.13.1
+numpy~=1.24.2
+nltk~=3.8.1
+pymystem3~=0.2.0
